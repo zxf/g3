@@ -1,0 +1,15 @@
+<div id="test" style="width:100%;height:100%;"></div>
+<script type="text/javascript" src="../build/g3.js"></script>
+<script type="text/javascript" src="../lib/three.min.js"></script>
+<script type="text/javascript">
+    var panorama = new g3.Panorama(document.getElementById('test'), 1000, 1000);
+    panorama.addScene("sky", [
+        'textures/cube/skybox/px.jpg', // right
+        'textures/cube/skybox/nx.jpg', // left
+        'textures/cube/skybox/py.jpg', // top
+        'textures/cube/skybox/ny.jpg', // bottom
+        'textures/cube/skybox/pz.jpg', // back
+        'textures/cube/skybox/nz.jpg'
+    ]);
+    panorama.setScene("sky");
+</script>
