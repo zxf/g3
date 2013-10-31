@@ -1,4 +1,4 @@
 g3
 ==
 
-gis library
+GIS javascript library.
