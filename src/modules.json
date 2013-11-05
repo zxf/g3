@@ -3,6 +3,7 @@
     "constant",
     "g3",
     "utils",
+    "event",
     "backends",
     "panorama",
     "end"

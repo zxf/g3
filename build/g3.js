@@ -111,9 +111,105 @@ g3.exports = function(value){
                 result[i] = handler(list[i], i);
             }
             return result;
+        },
+        extend: function(){
+            var deep = false;
+            var s = 0;
+            if(arguments[0] === true){
+                deep = true;
+                s = 1;
+            }
+            var copy = function(value){
+                if(deep){
+                    if(value instanceof Array){
+                        return utils.extend(true, [], value);
+                    } else if(value instanceof Object){
+                        return utils.extend(true, {}, value);
+                    }
+                }
+                return value;
+            };
+            var r = arguments[s];
+            for(var i=s+1;i<arguments.length;i++){
+                if(arguments[i] instanceof Array){
+                    for(var j=0;j<arguments[i].length;j++){
+                        r[j] = copy(arguments[i][j]);
+                    }
+                } else {
+                    for(var k in arguments[i]){
+                        r[k] = copy(arguments[i][k]);
+                    }
+                }
+            }
+            return r;
+        },
+        toArray: function(obj){
+            return Array.prototype.slice.call(obj);
+        },
+        degToRad: function(degrees){
+            var degreeToRadiansFactor = Math.PI / 180;
+            return degrees * degreeToRadiansFactor;
         }
     };
     g3.module('utils', utils);
+})();
+(function(){
+    var utils = g3.module('utils');
+
+    var EventMaster = g3.extendClass({
+        init: function(){
+            this._events = {};
+        },
+        _bind: function(event, callback){
+            if(!(event in this._events)){
+                this._events[event] = [];
+            }
+            this._events[event].push(callback);
+        },
+        bind: function(){
+            if(typeof arguments[0] == 'string'){
+                this._bind(arguments[0], arguments[1]);
+            }
+            else{
+                for(var event in arguments[0]){
+                    var callback = arguments[0][event];
+                    this._bind(event, callback);
+                }
+            }
+        },
+        unbind:function(event, callback){
+            if(callback == undefined){
+                this._events[event] = null;
+                delete this._events[event];
+            }
+            else{
+                var index = (this._events[event] || []).indexOf(callback);
+                if(index >= 0){
+                    this._events[event].splice(index, 1);
+                }
+            }
+        },
+        trigger:function(){
+            var args = utils.toArray(arguments);
+            var event = args.shift();
+            var callbacks = this._events[event] || [];
+            for(var i in callbacks){
+                if(callbacks[i].apply(this, args) === false){
+                    return false;
+                }
+            }
+            return null;
+        },
+        clear: function(){
+            this._events = {};
+        }
+    });
+
+
+    g3.module('event', {
+        'master': EventMaster
+    });
+    
 })();
 (function(){
     var BackendObject = g3.extendClass({
@@ -167,6 +263,7 @@ g3.exports = function(value){
             return material;
         },
         lookAt: function(target){
+            console.log(target);
             target = new THREE.Vector3(target.x, target.y, target.z);
             this.camera.lookAt(target);
         },
@@ -183,73 +280,102 @@ g3.exports = function(value){
     });
 })();
 (function(){
-    var Panorama = g3.extendClass({
+    var utils = g3.module('utils'),
+        Backend = g3.module('backends.three'),
+        EventMaster = g3.module('event.master');
+
+    var Scene = g3.extendClass({
+
+    });
+
+    var StaticScene = g3.extendClass(Scene, {
+        
+    });
+
+    var PanoScene = g3.extendClass(Scene, {
+        init: function(materials){
+            this.materials = materials;
+            this.lon = 0;
+            this.lat = 0;
+        },
+        setPos: function(lon, lat){
+            this.lon = lon;
+            this.lat = lat;
+        },
+        getLon: function(){
+            return this.lon;
+        },
+        getLat: function(){
+            return this.lat;
+        }
+    });
+
+    var PRenderer = g3.extendClass({
         init: function(container, width, height){
             this.container = container;
-            this.backend = new (g3.module('backends.three'))(width, height);
-            this.scenes = {};
+            this.backend = new Backend(width, height);
+            this.scene = null;
+            this._draggable = true;
             this.bindEvents();
         },
         bindEvents: function(){
             var _this = this;
-            this.container.appendChild(this.dom());
 
             var isUserInteracting = false,
             onMouseDownMouseX = 0, onMouseDownMouseY = 0,
-            lon = 90, onMouseDownLon = 0,
-            lat = 0, onMouseDownLat = 0,
-            phi = 0, theta = 0;
-            var render = function(){
-                lat = Math.max( - 85, Math.min( 85, lat ) );
-                phi = THREE.Math.degToRad( 90 - lat );
-                theta = THREE.Math.degToRad( lon );
-
-                _this.target.x = 500 * Math.sin( phi ) * Math.cos( theta );
-                _this.target.y = 500 * Math.cos( phi );
-                _this.target.z = 500 * Math.sin( phi ) * Math.sin( theta );
-                _this.backend.lookAt(_this.target);
-                _this.backend.render();
-            }
+            onPointerDownLon = 0, onPointerDownLat = 0,
+            lon = 0, lat = 0;
 
             var onMouseDown = function(event){
-                event.preventDefault();
-                isUserInteracting = true;
-                onPointerDownPointerX = event.clientX;
-                onPointerDownPointerY = event.clientY;
-                onPointerDownLon = lon;
-                onPointerDownLat = lat;
-            };
-            var onMouseMove = function(event){
-                if (isUserInteracting){
-                    lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
-                    lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                    render();
+                if(_this.isDraggable()){
+                    event.preventDefault();
+                    isUserInteracting = true;
+                    onPointerDownPointerX = event.clientX;
+                    onPointerDownPointerY = event.clientY;
+                    onPointerDownLon = _this.scene.getLon();
+                    onPointerDownLat = _this.scene.getLat();
                 }
-            }
+            };
+
+            var onMouseMove = function(event){
+                if(_this.isDraggable()){
+                    if (isUserInteracting){
+                        lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
+                        lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
+                        _this.moveTo(lon, lat);
+                    }
+                }
+            };
 
             var onMouseUp = function(event){
-                isUserInteracting = false;
-                render();
-            }
+                if(_this.isDraggable()){
+                    isUserInteracting = false;
+                    _this.moveTo(lon, lat);
+                }
+            };
 
             var onTouchStart = function(event){
-                if (event.touches.length == 1){
-                    event.preventDefault();
-                    onPointerDownPointerX = event.touches[ 0 ].pageX;
-                    onPointerDownPointerY = event.touches[ 0 ].pageY;
-                    onPointerDownLon = lon;
-                    onPointerDownLat = lat;
+                if(_this.isDraggable()){
+                    if (event.touches.length == 1){
+                        event.preventDefault();
+                        onPointerDownPointerX = event.touches[ 0 ].pageX;
+                        onPointerDownPointerY = event.touches[ 0 ].pageY;
+                        onPointerDownLon = lon;
+                        onPointerDownLat = lat;
+                    }
                 }
-            }
+            };
 
             var onTouchMove = function(event){
-                if (event.touches.length == 1){
-                    event.preventDefault();
-                    lon = ( onPointerDownPointerX - event.touches[0].pageX ) * 0.1 + onPointerDownLon;
-                    lat = ( event.touches[0].pageY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                    render();
+                if(_this.isDraggable()){
+                    if (event.touches.length == 1){
+                        event.preventDefault();
+                        lon = ( onPointerDownPointerX - event.touches[0].pageX ) * 0.1 + onPointerDownLon;
+                        lat = ( event.touches[0].pageY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
+                        _this.moveTo(lon, lat);
+                    }
                 }
-            }
+            };
 
             this.container.addEventListener('mousedown', onMouseDown, false);
             this.container.addEventListener('mousemove', onMouseMove, false);
@@ -258,34 +384,94 @@ g3.exports = function(value){
             this.container.addEventListener('touchstart', onTouchStart, false);
             this.container.addEventListener('touchmove', onTouchMove, false);
         },
-        addScene: function(name, materials, target){
-            target = target || {
-                x:0,
-                y:0,
-                z:0
-            };
-            this.scenes[name] = {
-                materials:materials,
-                target:target
-            }
-        },
-        setScene: function(name){
-            this.backend.addCubeScene(this.scenes[name]['materials']);
-            this.backend.lookAt(this.scenes[name]['target']);
-            this.target = this.scenes[name]['target'];
-            this.backend.render();
-        },
         dom: function(){
             return this.backend.dom();
+        },
+        geoToCoord: function(lon, lat){
+            lat = Math.max(-85, Math.min(85, lat));
+            var phi = utils.degToRad(90 - lat);
+            var theta = utils.degToRad(lon);
+
+            var x = 500 * Math.sin(phi) * Math.cos(theta);
+            var y = 500 * Math.cos(phi);
+            var z = 500 * Math.sin(phi) * Math.sin(theta);
+            return {
+                x:x,
+                y:y,
+                z:z
+            };
+        },
+        draggable: function(enable){
+            this._draggable = enable;
+        },
+        isDraggable: function(){
+            return this._draggable && this.scene;
+        },
+        moveTo: function(lon, lat){
+            this.backend.lookAt(this.geoToCoord(lon, lat));
+            this.backend.render();
+        },
+        render: function(scene){
+            this.backend.addCubeScene(scene.materials);
+            this.backend.lookAt(this.geoToCoord(scene.getLon(), scene.getLat()));
+            this.backend.render();
+            this.scene = scene;
         }
     });
 
-    g3.module('panorama', {
-        'Panorama': Panorama
+    var Panorama = g3.extendClass({
+        init: function(options){
+            this.opts = utils.extend({}, options);
+            this.container = this.getOption('container');
+            this.renderer = new PRenderer(this.container, this.getOption('width'), this.getOption('height'));
+            this.draggable(this.getOption('draggable'));
+            this.scenes = {};
+            //active scene
+            this._scene = null;
+            this.bindEvents();
+        },
+        getOption: function(name, defalut_value){
+            if(name in this.opts){
+                return this.opts[name];
+            } else {
+                return defalut_value;
+            }
+        },
+        draggable: function(enable){
+            this.renderer.draggable(enable);
+        },
+        bindEvents: function(){
+            var _this = this;
+            this.container.appendChild(this.dom());
+        },
+        addScene: function(name, scene){
+            this.scenes[name] = scene;
+            if(!this._default){
+                this._default = name;
+            }
+        },
+        switchScene: function(name){
+            this._active = name;
+            this.renderer.render(this.scenes[name]);
+        },
+        setDefaultScene: function(name){
+            this._default = name;
+        },
+        render: function(){
+            var name = this._active || this._default;
+            this.switchScene(name);
+        },
+        dom: function(){
+            return this.renderer.dom();
+        }
     });
 
     g3.exports({
-        'Panorama': Panorama
+        'panorama': {
+            'Panorama' : Panorama,
+            'StaticScene' : StaticScene,
+            'PanoScene' : PanoScene
+        }
     });
 
 })();
