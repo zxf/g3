@@ -1,33 +1,9 @@
 (function(){
     var utils = g3.module('utils'),
         Backend = g3.module('backends.three'),
-        EventMaster = g3.module('event.master');
-
-    var Scene = g3.extendClass({
-
-    });
-
-    var StaticScene = g3.extendClass(Scene, {
-        
-    });
-
-    var PanoScene = g3.extendClass(Scene, {
-        init: function(materials){
-            this.materials = materials;
-            this.lon = 0;
-            this.lat = 0;
-        },
-        setPos: function(lon, lat){
-            this.lon = lon;
-            this.lat = lat;
-        },
-        getLon: function(){
-            return this.lon;
-        },
-        getLat: function(){
-            return this.lat;
-        }
-    });
+        EventMaster = g3.module('event.master'),
+        StaticScene = g3.module('panorama.scene.static'),
+        PanoScene = g3.module('panorama.scene.panorama');
 
     var PRenderer = g3.extendClass({
         init: function(container, width, height){
@@ -106,7 +82,7 @@
         dom: function(){
             return this.backend.dom();
         },
-        geoToCoord: function(lon, lat){
+        posToCoord: function(lon, lat){
             lat = Math.max(-85, Math.min(85, lat));
             var phi = utils.degToRad(90 - lat);
             var theta = utils.degToRad(lon);
@@ -127,12 +103,13 @@
             return this._draggable && this.scene;
         },
         moveTo: function(lon, lat){
-            this.backend.lookAt(this.geoToCoord(lon, lat));
+            this.backend.lookAt(this.posToCoord(lon, lat));
+            this.scene.setPos(lon, lat);
             this.backend.render();
         },
         render: function(scene){
             this.backend.addCubeScene(scene.materials);
-            this.backend.lookAt(this.geoToCoord(scene.getLon(), scene.getLat()));
+            this.backend.lookAt(this.posToCoord(scene.getLon(), scene.getLat()));
             this.backend.render();
             this.scene = scene;
         }
@@ -158,12 +135,14 @@
         },
         draggable: function(enable){
             this.renderer.draggable(enable);
+            this.opts['draggable'] = enable;
         },
         bindEvents: function(){
             var _this = this;
             this.container.appendChild(this.dom());
         },
-        addScene: function(name, scene){
+        addScene: function(name, materials){
+            var scene = new PanoScene(materials);
             this.scenes[name] = scene;
             if(!this._default){
                 this._default = name;
@@ -185,12 +164,9 @@
         }
     });
 
-    g3.exports({
-        'panorama': {
-            'Panorama' : Panorama,
-            'StaticScene' : StaticScene,
-            'PanoScene' : PanoScene
-        }
+    g3.module('panorama', {
+        'render': PRenderer,
+        'panorama': Panorama
     });
 
 })();

@@ -19,9 +19,12 @@
             materials = utils.map(materials, function(material){
                 return _this.loadTexture(material);
             });
-            mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
+            var mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
+            var group = new THREE.Object3D();
             mesh.scale.x = -1;
             this.scene.add(mesh);
+            this.scene.add(group);
+            this.group = group;
         },
         loadTexture: function(path){
             var _this = this;
