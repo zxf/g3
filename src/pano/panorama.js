@@ -1,9 +1,10 @@
 (function(){
     var utils = g3.module('utils'),
-        Backend = g3.module('backends.three'),
-        EventMaster = g3.module('event.master'),
-        StaticScene = g3.module('panorama.scene.static'),
-        PanoScene = g3.module('panorama.scene.panorama');
+        Backend = g3.module('backends.ThreeBackend'),
+        EventMaster = g3.module('event.Master'),
+        StaticScene = g3.module('pano.StaticScene'),
+        PanoScene = g3.module('pano.Scene'),
+        Position = g3.module('pano.Position');
 
     var PRenderer = g3.extendClass({
         init: function(container, width, height){
@@ -37,7 +38,7 @@
                     if (isUserInteracting){
                         lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
                         lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                        _this.moveTo(lon, lat);
+                        _this.moveTo(new Position([lon, lat]));
                     }
                 }
             };
@@ -45,7 +46,7 @@
             var onMouseUp = function(event){
                 if(_this.isDraggable()){
                     isUserInteracting = false;
-                    _this.moveTo(lon, lat);
+                    _this.moveTo(new Position([lon, lat]));
                 }
             };
 
@@ -67,7 +68,7 @@
                         event.preventDefault();
                         lon = ( onPointerDownPointerX - event.touches[0].pageX ) * 0.1 + onPointerDownLon;
                         lat = ( event.touches[0].pageY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                        _this.moveTo(lon, lat);
+                        _this.moveTo(new Position([lon, lat]));
                     }
                 }
             };
@@ -82,34 +83,20 @@
         dom: function(){
             return this.backend.dom();
         },
-        posToCoord: function(lon, lat){
-            lat = Math.max(-85, Math.min(85, lat));
-            var phi = utils.degToRad(90 - lat);
-            var theta = utils.degToRad(lon);
-
-            var x = 500 * Math.sin(phi) * Math.cos(theta);
-            var y = 500 * Math.cos(phi);
-            var z = 500 * Math.sin(phi) * Math.sin(theta);
-            return {
-                x:x,
-                y:y,
-                z:z
-            };
-        },
         draggable: function(enable){
             this._draggable = enable;
         },
         isDraggable: function(){
             return this._draggable && this.scene;
         },
-        moveTo: function(lon, lat){
-            this.backend.lookAt(this.posToCoord(lon, lat));
-            this.scene.setPos(lon, lat);
+        moveTo: function(pos){
+            this.backend.lookAt(pos.getCoord());
+            this.scene.setPos(pos);
             this.backend.render();
         },
         render: function(scene){
             this.backend.addCubeScene(scene.materials);
-            this.backend.lookAt(this.posToCoord(scene.getLon(), scene.getLat()));
+            this.backend.lookAt(scene.getCoord());
             this.backend.render();
             this.scene = scene;
         }
@@ -121,6 +108,7 @@
             this.container = this.getOption('container');
             this.renderer = new PRenderer(this.container, this.getOption('width'), this.getOption('height'));
             this.draggable(this.getOption('draggable'));
+            this.mevent = new EventMaster(this);
             this.scenes = {};
             //active scene
             this._scene = null;
@@ -141,8 +129,7 @@
             var _this = this;
             this.container.appendChild(this.dom());
         },
-        addScene: function(name, materials){
-            var scene = new PanoScene(materials);
+        addScene: function(name, scene){
             this.scenes[name] = scene;
             if(!this._default){
                 this._default = name;
@@ -161,12 +148,15 @@
         },
         dom: function(){
             return this.renderer.dom();
+        },
+        bind: function(){
+            this.mevent.bind.apply(this.mevent, arguments);
         }
     });
 
-    g3.module('panorama', {
-        'render': PRenderer,
-        'panorama': Panorama
+    g3.module('pano', {
+        'Render': PRenderer,
+        'Panorama': Panorama
     });
 
 })();

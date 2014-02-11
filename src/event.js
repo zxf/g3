@@ -2,7 +2,8 @@
     var utils = g3.module('utils');
 
     var EventMaster = g3.extendClass({
-        init: function(){
+        init: function(scope){
+            this._scope = scope || window;
             this._events = {};
         },
         _bind: function(event, callback){
@@ -39,7 +40,7 @@
             var event = args.shift();
             var callbacks = this._events[event] || [];
             for(var i in callbacks){
-                if(callbacks[i].apply(this, args) === false){
+                if(callbacks[i].apply(this._scope, args) === false){
                     return false;
                 }
             }
@@ -50,9 +51,16 @@
         }
     });
 
+    
+    G3Event = g3.extendClass({
+        init: function(data){
+            this._data = data;
+        }
+    });
 
     g3.module('event', {
-        'master': EventMaster
+        'Master': EventMaster,
+        'Event': G3Event
     });
     
 })();

@@ -1,1 +1,1 @@
-MODULESPARATOR = ".";
+var MODULESPARATOR = ".";

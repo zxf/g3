@@ -6,7 +6,7 @@
     });
 
     g3.module('backends', {
-        'base': BackendObject
+        'Base': BackendObject
     });
 
 })();

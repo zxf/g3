@@ -1,6 +1,6 @@
 (function(){
     var utils = g3.module('utils');
-    var ThreeBackend = g3.extendClass('backends.base', {
+    var ThreeBackend = g3.extendClass('backends.Base', {
         init: function(width, height){
             if(!window.THREE){
                 throw "require three.js.";
@@ -53,6 +53,6 @@
     });
 
     g3.module('backends', {
-        'three': ThreeBackend
+        'ThreeBackend': ThreeBackend
     });
 })();

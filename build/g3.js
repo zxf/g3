@@ -1,10 +1,10 @@
 /*!
 * g3 v0.0.1
-* Copyright 2013 Felix.Zhu
+* Copyright 2014 Felix.Zhu
 */
 var g3 = (function(){
 var g3 = {};
-MODULESPARATOR = ".";
+var MODULESPARATOR = ".";
 var modules = {};
 g3.module = function(){
     if(arguments.length == 1){
@@ -157,7 +157,8 @@ g3.exports = function(value){
     var utils = g3.module('utils');
 
     var EventMaster = g3.extendClass({
-        init: function(){
+        init: function(scope){
+            this._scope = scope || window;
             this._events = {};
         },
         _bind: function(event, callback){
@@ -194,7 +195,7 @@ g3.exports = function(value){
             var event = args.shift();
             var callbacks = this._events[event] || [];
             for(var i in callbacks){
-                if(callbacks[i].apply(this, args) === false){
+                if(callbacks[i].apply(this._scope, args) === false){
                     return false;
                 }
             }
@@ -205,9 +206,16 @@ g3.exports = function(value){
         }
     });
 
+    
+    G3Event = g3.extendClass({
+        init: function(data){
+            this._data = data;
+        }
+    });
 
     g3.module('event', {
-        'master': EventMaster
+        'Master': EventMaster,
+        'Event': G3Event
     });
     
 })();
@@ -219,13 +227,13 @@ g3.exports = function(value){
     });
 
     g3.module('backends', {
-        'base': BackendObject
+        'Base': BackendObject
     });
 
 })();
 (function(){
     var utils = g3.module('utils');
-    var ThreeBackend = g3.extendClass('backends.base', {
+    var ThreeBackend = g3.extendClass('backends.Base', {
         init: function(width, height){
             if(!window.THREE){
                 throw "require three.js.";
@@ -245,16 +253,11 @@ g3.exports = function(value){
                 return _this.loadTexture(material);
             });
             var mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
-            var material = new THREE.MeshFaceMaterial(materials);
-
-            var particle = new THREE.Sprite( material );
-            particle.scale.y = 1;
-            particle.scale.x = 1;
-            particle.position.x = 1;
-            particle.position.z = 1;
+            var group = new THREE.Object3D();
             mesh.scale.x = -1;
             this.scene.add(mesh);
-            this.scene.add(particle);
+            this.scene.add(group);
+            this.group = group;
         },
         loadTexture: function(path){
             var _this = this;
@@ -283,23 +286,60 @@ g3.exports = function(value){
     });
 
     g3.module('backends', {
-        'three': ThreeBackend
+        'ThreeBackend': ThreeBackend
     });
 })();
 (function(){
-    var Hotspot = g3.extendClass({
-        init: function(){
+    var utils = g3.module('utils');
+    var Position = g3.extendClass({
+        init: function(pos){
+            this.lon = pos[0];
+            this.lat = pos[1];
+        },
+        getLon: function(){
+            return this.lon;
+        },
+        getLat: function(){
+            return this.lat;
+        },
+        getCoord: function(){
+            var lon = this.lon;
+            var lat = this.lat;
+            lat = Math.max(-85, Math.min(85, lat));
+            var phi = utils.degToRad(90 - lat);
+            var theta = utils.degToRad(lon);
 
+            var x = 500 * Math.sin(phi) * Math.cos(theta);
+            var y = 500 * Math.cos(phi);
+            var z = 500 * Math.sin(phi) * Math.sin(theta);
+            return {
+                x:x,
+                y:y,
+                z:z
+            };
         }
     });
 
-    g3.module('panorama',{
-        'hotspot': Hotspot
+    g3.module('pano',{
+        'Position': Position
     });
 
 })();
 (function(){
-    var Hotspot = g3.module('panorama.hotspot');
+    var Hotspot = g3.extendClass({
+        init: function(pos){
+            this.pos = pos;
+        }
+    });
+
+    g3.module('pano',{
+        'Hotspot': Hotspot
+    });
+
+})();
+(function(){
+    var Hotspot = g3.module('pano.Hotspot');
+    var Position = g3.module('pano.Position');
 
     var Scene = g3.extendClass({
 
@@ -310,41 +350,48 @@ g3.exports = function(value){
     });
 
     var PanoScene = g3.extendClass(Scene, {
-        init: function(materials){
+        init: function(materials, pos){
             this.materials = materials;
-            this.lon = 0;
-            this.lat = 0;
+            this.pos = pos || new Position([0,0]);
+            this.hotspots = {};
         },
-        setPos: function(lon, lat){
-            this.lon = lon;
-            this.lat = lat;
+        setPos: function(pos){
+            this.pos = pos;
+        },
+        getPos: function(){
+            return this.pos;
         },
         getLon: function(){
-            return this.lon;
+            return this.getPos().getLon();
         },
         getLat: function(){
-            return this.lat;
+            return this.getPos().getLat();
         },
-        addHotspot: function(lon, lat){
-            
+        getCoord: function(){
+            return this.getPos().getCoord();
+        },
+        addHotspot: function(name, hotspot){
+            this.hotspots[name] = hotspot;
+        },
+        getHotspot: function(name){
+            return this.hotspots[name];
         }
     });
 
 
-    g3.module('panorama',{
-        'scene': {
-            'static' : StaticScene,
-            'panorama' : PanoScene
-        }
+    g3.module('pano',{
+        'StaticScene': StaticScene,
+        'Scene' : PanoScene
     });
 
 })();
 (function(){
     var utils = g3.module('utils'),
-        Backend = g3.module('backends.three'),
-        EventMaster = g3.module('event.master'),
-        StaticScene = g3.module('panorama.scene.static'),
-        PanoScene = g3.module('panorama.scene.panorama');
+        Backend = g3.module('backends.ThreeBackend'),
+        EventMaster = g3.module('event.Master'),
+        StaticScene = g3.module('pano.StaticScene'),
+        PanoScene = g3.module('pano.Scene'),
+        Position = g3.module('pano.Position');
 
     var PRenderer = g3.extendClass({
         init: function(container, width, height){
@@ -378,7 +425,7 @@ g3.exports = function(value){
                     if (isUserInteracting){
                         lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
                         lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                        _this.moveTo(lon, lat);
+                        _this.moveTo(new Position([lon, lat]));
                     }
                 }
             };
@@ -386,7 +433,7 @@ g3.exports = function(value){
             var onMouseUp = function(event){
                 if(_this.isDraggable()){
                     isUserInteracting = false;
-                    _this.moveTo(lon, lat);
+                    _this.moveTo(new Position([lon, lat]));
                 }
             };
 
@@ -408,7 +455,7 @@ g3.exports = function(value){
                         event.preventDefault();
                         lon = ( onPointerDownPointerX - event.touches[0].pageX ) * 0.1 + onPointerDownLon;
                         lat = ( event.touches[0].pageY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                        _this.moveTo(lon, lat);
+                        _this.moveTo(new Position([lon, lat]));
                     }
                 }
             };
@@ -423,34 +470,20 @@ g3.exports = function(value){
         dom: function(){
             return this.backend.dom();
         },
-        posToCoord: function(lon, lat){
-            lat = Math.max(-85, Math.min(85, lat));
-            var phi = utils.degToRad(90 - lat);
-            var theta = utils.degToRad(lon);
-
-            var x = 500 * Math.sin(phi) * Math.cos(theta);
-            var y = 500 * Math.cos(phi);
-            var z = 500 * Math.sin(phi) * Math.sin(theta);
-            return {
-                x:x,
-                y:y,
-                z:z
-            };
-        },
         draggable: function(enable){
             this._draggable = enable;
         },
         isDraggable: function(){
             return this._draggable && this.scene;
         },
-        moveTo: function(lon, lat){
-            this.backend.lookAt(this.posToCoord(lon, lat));
-            this.scene.setPos(lon, lat);
+        moveTo: function(pos){
+            this.backend.lookAt(pos.getCoord());
+            this.scene.setPos(pos);
             this.backend.render();
         },
         render: function(scene){
             this.backend.addCubeScene(scene.materials);
-            this.backend.lookAt(this.posToCoord(scene.getLon(), scene.getLat()));
+            this.backend.lookAt(scene.getCoord());
             this.backend.render();
             this.scene = scene;
         }
@@ -462,6 +495,7 @@ g3.exports = function(value){
             this.container = this.getOption('container');
             this.renderer = new PRenderer(this.container, this.getOption('width'), this.getOption('height'));
             this.draggable(this.getOption('draggable'));
+            this.mevent = new EventMaster(this);
             this.scenes = {};
             //active scene
             this._scene = null;
@@ -482,8 +516,7 @@ g3.exports = function(value){
             var _this = this;
             this.container.appendChild(this.dom());
         },
-        addScene: function(name, materials){
-            var scene = new PanoScene(materials);
+        addScene: function(name, scene){
             this.scenes[name] = scene;
             if(!this._default){
                 this._default = name;
@@ -502,20 +535,30 @@ g3.exports = function(value){
         },
         dom: function(){
             return this.renderer.dom();
+        },
+        bind: function(){
+            this.mevent.bind.apply(this.mevent, arguments);
         }
     });
 
-    g3.module('panorama', {
-        'render': PRenderer,
-        'panorama': Panorama
+    g3.module('pano', {
+        'Render': PRenderer,
+        'Panorama': Panorama
     });
 
 })();
 (function(){
-    var Panorama = g3.module('panorama.panorama');
+    var pano = g3.module('pano');
+    var event = g3.module('event');
     
     g3.exports({
-        'Panorama': Panorama
+        'Event': event.G3Event,
+        'pano': {
+            'Panorama': pano.Panorama,
+            'Scene': pano.Scene,
+            'Hotspot': pano.Hotspot,
+            'Position': pano.Position
+        }
     });
 
 })();
