@@ -5,13 +5,13 @@
             this.lon = pos[0];
             this.lat = pos[1];
         },
-        getLon: function(){
-            return this.lon;
+        getSphereCoord: function(){
+            return {
+                lon:this.lon,
+                lat:this.lat
+            };
         },
-        getLat: function(){
-            return this.lat;
-        },
-        getCoord: function(){
+        getVectorCoord: function(){
             var lon = this.lon;
             var lat = this.lat;
             lat = Math.max(-85, Math.min(85, lat));

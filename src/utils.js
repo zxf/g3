@@ -56,6 +56,11 @@
         degToRad: function(degrees){
             var degreeToRadiansFactor = Math.PI / 180;
             return degrees * degreeToRadiansFactor;
+        },
+        proxy: function(func, scope){
+            return function(){
+                func.apply(scope, arguments);
+            };
         }
     };
     g3.module('utils', utils);

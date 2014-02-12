@@ -149,6 +149,11 @@ g3.exports = function(value){
         degToRad: function(degrees){
             var degreeToRadiansFactor = Math.PI / 180;
             return degrees * degreeToRadiansFactor;
+        },
+        proxy: function(func, scope){
+            return function(){
+                func.apply(scope, arguments);
+            };
         }
     };
     g3.module('utils', utils);
@@ -246,23 +251,25 @@ g3.exports = function(value){
             this.texture_placeholder = document.createElement( 'canvas' );
             this.texture_placeholder.width = 128;
             this.texture_placeholder.height = 128;
+
+            this.meshs = [];
         },
-        addCubeScene: function(materials){
+        setScene: function(scene){
             var _this = this;
-            materials = utils.map(materials, function(material){
+            this.clear();
+
+            //set scene
+            materials = utils.map(scene.materials, function(material){
                 return _this.loadTexture(material);
             });
             var mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
-            var group = new THREE.Object3D();
-            mesh.scale.x = -1;
             this.scene.add(mesh);
-            this.scene.add(group);
-            this.group = group;
+            this.meshs.push(mesh);
         },
         loadTexture: function(path){
             var _this = this;
-            var texture = new THREE.Texture( this.texture_placeholder );
-            var material = new THREE.MeshBasicMaterial( { map: texture, overdraw: true } );
+            var texture = new THREE.Texture(this.texture_placeholder);
+            var material = new THREE.MeshBasicMaterial({ map: texture, overdraw: true });
             var image = new Image();
 
             image.onload = function () {
@@ -277,8 +284,14 @@ g3.exports = function(value){
             target = new THREE.Vector3(target.x, target.y, target.z);
             this.camera.lookAt(target);
         },
+        clear: function(){
+            while(this.meshs.length > 0){
+                var mesh = this.meshs.pop();
+                this.scene.remove(mesh);
+            }
+        },
         render: function(){
-            this.renderer.render(this.scene, this.camera );
+            this.renderer.render(this.scene, this.camera);
         },
         dom: function(){
             return this.renderer.domElement;
@@ -296,13 +309,13 @@ g3.exports = function(value){
             this.lon = pos[0];
             this.lat = pos[1];
         },
-        getLon: function(){
-            return this.lon;
+        getSphereCoord: function(){
+            return {
+                lon:this.lon,
+                lat:this.lat
+            };
         },
-        getLat: function(){
-            return this.lat;
-        },
-        getCoord: function(){
+        getVectorCoord: function(){
             var lon = this.lon;
             var lat = this.lat;
             lat = Math.max(-85, Math.min(85, lat));
@@ -345,42 +358,21 @@ g3.exports = function(value){
 
     });
 
-    var StaticScene = g3.extendClass(Scene, {
-        
-    });
-
     var PanoScene = g3.extendClass(Scene, {
         init: function(materials, pos){
             this.materials = materials;
             this.pos = pos || new Position([0,0]);
-            this.hotspots = {};
-        },
-        setPos: function(pos){
-            this.pos = pos;
         },
         getPos: function(){
             return this.pos;
         },
-        getLon: function(){
-            return this.getPos().getLon();
-        },
-        getLat: function(){
-            return this.getPos().getLat();
-        },
-        getCoord: function(){
-            return this.getPos().getCoord();
-        },
-        addHotspot: function(name, hotspot){
-            this.hotspots[name] = hotspot;
-        },
-        getHotspot: function(name){
-            return this.hotspots[name];
+        setPos: function(pos){
+            this.pos = pos;
         }
     });
 
 
     g3.module('pano',{
-        'StaticScene': StaticScene,
         'Scene' : PanoScene
     });
 
@@ -389,103 +381,30 @@ g3.exports = function(value){
     var utils = g3.module('utils'),
         Backend = g3.module('backends.ThreeBackend'),
         EventMaster = g3.module('event.Master'),
-        StaticScene = g3.module('pano.StaticScene'),
-        PanoScene = g3.module('pano.Scene'),
         Position = g3.module('pano.Position');
 
-    var PRenderer = g3.extendClass({
-        init: function(container, width, height){
-            this.container = container;
-            this.backend = new Backend(width, height);
-            this.scene = null;
-            this._draggable = true;
-            this.bindEvents();
+    var TouchMeter = g3.extendClass({
+        init: function(){
+            this.isUserInteracting = false;
+            this.onMouseDownMouseX = 0;
+            this.onMouseDownMouseY = 0;
+            this.onPointerDownLon = 0;
+            this.onPointerDownLat = 0;
         },
-        bindEvents: function(){
-            var _this = this;
-
-            var isUserInteracting = false,
-            onMouseDownMouseX = 0, onMouseDownMouseY = 0,
-            onPointerDownLon = 0, onPointerDownLat = 0,
-            lon = 0, lat = 0;
-
-            var onMouseDown = function(event){
-                if(_this.isDraggable()){
-                    event.preventDefault();
-                    isUserInteracting = true;
-                    onPointerDownPointerX = event.clientX;
-                    onPointerDownPointerY = event.clientY;
-                    onPointerDownLon = _this.scene.getLon();
-                    onPointerDownLat = _this.scene.getLat();
-                }
-            };
-
-            var onMouseMove = function(event){
-                if(_this.isDraggable()){
-                    if (isUserInteracting){
-                        lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
-                        lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                        _this.moveTo(new Position([lon, lat]));
-                    }
-                }
-            };
-
-            var onMouseUp = function(event){
-                if(_this.isDraggable()){
-                    isUserInteracting = false;
-                    _this.moveTo(new Position([lon, lat]));
-                }
-            };
-
-            var onTouchStart = function(event){
-                if(_this.isDraggable()){
-                    if (event.touches.length == 1){
-                        event.preventDefault();
-                        onPointerDownPointerX = event.touches[ 0 ].pageX;
-                        onPointerDownPointerY = event.touches[ 0 ].pageY;
-                        onPointerDownLon = lon;
-                        onPointerDownLat = lat;
-                    }
-                }
-            };
-
-            var onTouchMove = function(event){
-                if(_this.isDraggable()){
-                    if (event.touches.length == 1){
-                        event.preventDefault();
-                        lon = ( onPointerDownPointerX - event.touches[0].pageX ) * 0.1 + onPointerDownLon;
-                        lat = ( event.touches[0].pageY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
-                        _this.moveTo(new Position([lon, lat]));
-                    }
-                }
-            };
-
-            this.container.addEventListener('mousedown', onMouseDown, false);
-            this.container.addEventListener('mousemove', onMouseMove, false);
-            this.container.addEventListener('mouseup', onMouseUp, false);
-
-            this.container.addEventListener('touchstart', onTouchStart, false);
-            this.container.addEventListener('touchmove', onTouchMove, false);
+        startMove: function(MousePos, ScenePos){
+            this.isUserInteracting = true;
+            this.onPointerDownPointerX = MousePos.x;
+            this.onPointerDownPointerY = MousePos.y;
+            this.onPointerDownLon = ScenePos.lon;
+            this.onPointerDownLat = ScenePos.lat;
         },
-        dom: function(){
-            return this.backend.dom();
+        getMovePos: function(MousePos){
+            var lon = ( this.onPointerDownPointerX - MousePos.x ) * 0.1 + this.onPointerDownLon;
+            var lat = ( MousePos.y - this.onPointerDownPointerY ) * 0.1 + this.onPointerDownLat;
+            return new Position([lon, lat]);
         },
-        draggable: function(enable){
-            this._draggable = enable;
-        },
-        isDraggable: function(){
-            return this._draggable && this.scene;
-        },
-        moveTo: function(pos){
-            this.backend.lookAt(pos.getCoord());
-            this.scene.setPos(pos);
-            this.backend.render();
-        },
-        render: function(scene){
-            this.backend.addCubeScene(scene.materials);
-            this.backend.lookAt(scene.getCoord());
-            this.backend.render();
-            this.scene = scene;
+        stopMove: function(){
+            this.isUserInteracting = false;
         }
     });
 
@@ -493,13 +412,56 @@ g3.exports = function(value){
         init: function(options){
             this.opts = utils.extend({}, options);
             this.container = this.getOption('container');
-            this.renderer = new PRenderer(this.container, this.getOption('width'), this.getOption('height'));
-            this.draggable(this.getOption('draggable'));
+            this.backend = new Backend(
+                this.getOption('width', this.container.width), 
+                this.getOption('height', this.container.height));
             this.mevent = new EventMaster(this);
+            this.touch_meter = new TouchMeter();
             this.scenes = {};
-            //active scene
-            this._scene = null;
+            this._active_scene = null;
+            this._default_scene = null
             this.bindEvents();
+        },
+        bindEvents: function(){
+            this.container.appendChild(this.backend.dom());
+            this.container.addEventListener('mousedown', utils.proxy(this._onMouseDown, this), false);
+            this.container.addEventListener('mousemove', utils.proxy(this._onMouseMove, this), false);
+            this.container.addEventListener('mouseup', utils.proxy(this._onMouseUp, this), false);
+
+            this.container.addEventListener('touchstart', utils.proxy(this._onTouchStart, this), false);
+            this.container.addEventListener('touchmove', utils.proxy(this._onTouchMove, this), false);
+        },
+        _onMouseDown: function(event){
+            event.preventDefault();
+            this.touch_meter.startMove(event, this.getActiveScene().getPos());
+        },
+        _onMouseMove: function(event){
+            if(this.touch_meter.isUserInteracting){
+                var pos = this.touch_meter.getMovePos(event);
+                this.moveTo(pos);
+            }
+        },
+        _onMouseUp: function(event){
+            this.touch_meter.stopMove();
+        },
+        _onTouchStart: function(event){
+            if (event.touches && event.touches.length == 1){
+                event.preventDefault();
+                this.touch_meter.startMove({
+                    x:event.touches[ 0 ].pageX,
+                    y:event.touches[ 0 ].pageY
+                }, this.getActiveScene().getPos());
+            }
+        },
+        _onTouchMove: function(event){
+            if (event.touches && event.touches.length == 1){
+                event.preventDefault();
+                var pos = this.touch_meter.getMovePos({
+                    x:event.touches[ 0 ].pageX,
+                    y:event.touches[ 0 ].pageY
+                });
+                this.moveTo(pos);
+            }
         },
         getOption: function(name, defalut_value){
             if(name in this.opts){
@@ -508,41 +470,40 @@ g3.exports = function(value){
                 return defalut_value;
             }
         },
-        draggable: function(enable){
-            this.renderer.draggable(enable);
-            this.opts['draggable'] = enable;
-        },
-        bindEvents: function(){
-            var _this = this;
-            this.container.appendChild(this.dom());
+        getActiveScene: function(){
+            return this.scenes[this._active_scene];
         },
         addScene: function(name, scene){
             this.scenes[name] = scene;
-            if(!this._default){
-                this._default = name;
+            if(!this._default_scene){
+                this._default_scene = name;
             }
         },
         switchScene: function(name){
-            this._active = name;
-            this.renderer.render(this.scenes[name]);
+            this._active_scene = name;
+            var scene = this.scenes[name];
+            this.backend.setScene(scene);
+            this.backend.lookAt(scene.getPos().getVectorCoord());
+            this.backend.render();
         },
         setDefaultScene: function(name){
-            this._default = name;
+            this._default_scene = name;
         },
         render: function(){
-            var name = this._active || this._default;
+            var name = this._active_scene || this._default_scene;
             this.switchScene(name);
-        },
-        dom: function(){
-            return this.renderer.dom();
         },
         bind: function(){
             this.mevent.bind.apply(this.mevent, arguments);
+        },
+        moveTo: function(pos){
+            this.backend.lookAt(pos.getVectorCoord());
+            this.getActiveScene().setPos(pos);
+            this.backend.render();
         }
     });
 
     g3.module('pano', {
-        'Render': PRenderer,
         'Panorama': Panorama
     });
 

@@ -5,8 +5,7 @@
     var panorama = new g3.pano.Panorama({
         'container': document.getElementById('test'),
         'width': 1000,
-        'height': 1000,
-        'draggable': true
+        'height': 1000
     });
 
     var scene = new g3.pano.Scene([
@@ -18,12 +17,14 @@
         'textures/cube/skybox/nz.jpg'  // front
     ], new g3.pano.Position([0, 0]));    
 
+/*
     //hotspot
     var hotspot1 = new g3.pano.Hotspot("h1");
     var hotspot2 = new g3.pano.Hotspot("h2");
     scene.addHotspot("h1", new g3.pano.Position([10, 20]), hotspot1);
     scene.addHotspot("h2", new g3.pano.Position([10, 70]), hotspot2);
-    
+*/
+ 
     //scene
     panorama.addScene("sky", scene);
     panorama.setDefaultScene("sky");

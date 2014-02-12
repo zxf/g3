@@ -13,23 +13,25 @@
             this.texture_placeholder = document.createElement( 'canvas' );
             this.texture_placeholder.width = 128;
             this.texture_placeholder.height = 128;
+
+            this.meshs = [];
         },
-        addCubeScene: function(materials){
+        setScene: function(scene){
             var _this = this;
-            materials = utils.map(materials, function(material){
+            this.clear();
+
+            //set scene
+            materials = utils.map(scene.materials, function(material){
                 return _this.loadTexture(material);
             });
             var mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
-            var group = new THREE.Object3D();
-            mesh.scale.x = -1;
             this.scene.add(mesh);
-            this.scene.add(group);
-            this.group = group;
+            this.meshs.push(mesh);
         },
         loadTexture: function(path){
             var _this = this;
-            var texture = new THREE.Texture( this.texture_placeholder );
-            var material = new THREE.MeshBasicMaterial( { map: texture, overdraw: true } );
+            var texture = new THREE.Texture(this.texture_placeholder);
+            var material = new THREE.MeshBasicMaterial({ map: texture, overdraw: true });
             var image = new Image();
 
             image.onload = function () {
@@ -44,8 +46,14 @@
             target = new THREE.Vector3(target.x, target.y, target.z);
             this.camera.lookAt(target);
         },
+        clear: function(){
+            while(this.meshs.length > 0){
+                var mesh = this.meshs.pop();
+                this.scene.remove(mesh);
+            }
+        },
         render: function(){
-            this.renderer.render(this.scene, this.camera );
+            this.renderer.render(this.scene, this.camera);
         },
         dom: function(){
             return this.renderer.domElement;
