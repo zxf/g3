@@ -64,6 +64,9 @@ g3.extendClass = function(){
     }
     var g3Object = function(){
         this.parent = parentObject.prototype;
+        this.super = function(name, params){
+            return this.parent[name].apply(this, params);
+        };
         this.init.apply(this, arguments);
     };
     var parentObject = function(){};

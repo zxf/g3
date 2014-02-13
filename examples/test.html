@@ -4,27 +4,28 @@
 <script type="text/javascript">
     var panorama = new g3.pano.Panorama({
         'container': document.getElementById('test'),
-        'width': 1000,
-        'height': 1000
+        'width': 100,
+        'height': 100
     });
 
-    var scene = new g3.pano.Scene([
+    var scene = new g3.pano.BoxScene([
         'textures/cube/skybox/px.jpg', // right
         'textures/cube/skybox/nx.jpg', // left
         'textures/cube/skybox/py.jpg', // top
         'textures/cube/skybox/ny.jpg', // bottom
         'textures/cube/skybox/pz.jpg', // back
         'textures/cube/skybox/nz.jpg'  // front
-    ], new g3.pano.Position([0, 0]));    
+    ], new g3.pano.Position([0, 0]));
 
-/*
+
     //hotspot
-    var hotspot1 = new g3.pano.Hotspot("h1");
-    var hotspot2 = new g3.pano.Hotspot("h2");
-    scene.addHotspot("h1", new g3.pano.Position([10, 20]), hotspot1);
-    scene.addHotspot("h2", new g3.pano.Position([10, 70]), hotspot2);
-*/
- 
+    var hotspot1 = new g3.pano.ImageHotspot('textures/s.png', 50, 50, new g3.pano.Position([0, -20]));
+    var hotspot2 = new g3.pano.ImageHotspot('textures/s.png', 50, 50, new g3.pano.Position([0, 0]));
+
+    scene.addHotspot("h1", hotspot1);
+    scene.addHotspot("h2", hotspot2);
+
+
     //scene
     panorama.addScene("sky", scene);
     panorama.setDefaultScene("sky");

@@ -71,6 +71,9 @@ g3.extendClass = function(){
     }
     var g3Object = function(){
         this.parent = parentObject.prototype;
+        this.super = function(name, params){
+            return this.parent[name].apply(this, params);
+        };
         this.init.apply(this, arguments);
     };
     var parentObject = function(){};
@@ -92,7 +95,9 @@ g3.exports = function(value){
     }
 };
 (function(){
-    var utils = {
+    var utils = {};
+
+    utils = {
         each: function(list, handler){
             for(var i in list){
                 if(handler(list[i], i) === false){
@@ -152,10 +157,42 @@ g3.exports = function(value){
         },
         proxy: function(func, scope){
             return function(){
-                func.apply(scope, arguments);
+                return func.apply(scope, arguments);
             };
         }
     };
+
+    utils.WidgetObject = g3.extendClass({
+        default_options: {},
+        init: function(options){
+            this.opts = utils.extend({}, this.default_options, options);
+        },
+        option: function(){
+            if(arguments.length == 1){
+                if(typeof arguments[0] == "string"){
+                    return this.getOption(arguments[0]);
+                } else {
+                    utils.extend(this.opts, arguments[0]);
+                    return true;
+                }
+            }
+            else {
+                this.setOption(arguments[0], arguments[1]);
+                return true;
+            }
+        },
+        getOption: function(name, defalut_value){
+            if(name in this.opts){
+                return this.opts[name];
+            } else {
+                return defalut_value;
+            }
+        },
+        setOption: function(name, value){
+            this.opts[name] = value;
+        }
+    });
+
     g3.module('utils', utils);
 })();
 (function(){
@@ -243,8 +280,9 @@ g3.exports = function(value){
             if(!window.THREE){
                 throw "require three.js.";
             }
-            this.camera = new THREE.PerspectiveCamera(75, width / height, 1, 1100);
+            this.camera = new THREE.PerspectiveCamera(75, width / height, 1, 1000);
             this.scene = new THREE.Scene();
+            this.group = null;
             this.renderer = new THREE.CanvasRenderer();
             this.renderer.setSize(width, height);
 
@@ -252,19 +290,34 @@ g3.exports = function(value){
             this.texture_placeholder.width = 128;
             this.texture_placeholder.height = 128;
 
-            this.meshs = [];
         },
         setScene: function(scene){
             var _this = this;
             this.clear();
-
+            this.group = new THREE.Object3D();
+            this.scene.add(this.group);
             //set scene
             materials = utils.map(scene.materials, function(material){
                 return _this.loadTexture(material);
             });
-            var mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
-            this.scene.add(mesh);
-            this.meshs.push(mesh);
+            var mesh = new THREE.Mesh(new THREE.SphereGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
+            mesh.scale.x = - 1;
+            //this.group.add(mesh);
+            this.setHotspots(scene.hotspots);
+        },
+        setHotspots: function(hotspots){
+            for(var k in hotspots){
+                var hotspot = hotspots[k];
+                //var mesh = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), material);
+                var mesh = new THREE.Mesh(new THREE.CubeGeometry(100, 100, 100), new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff, opacity: 0.5 }));
+                //utils.extend(mesh.position, hotspot.getPos().getVectorCoord());
+                //mesh.scale.x = -1;
+
+                //var mesh = new THREE.Mesh(new THREE.PlaneGeometry( 480, 204, 4, 4 ), this.loadTexture(hotspot.material));
+                //mesh.scale.x = mesh.scale.y = mesh.scale.z = 1.5;
+                //mesh.rotation.z = 90;
+                this.group.add(mesh);
+            }
         },
         loadTexture: function(path){
             var _this = this;
@@ -283,11 +336,22 @@ g3.exports = function(value){
         lookAt: function(target){
             target = new THREE.Vector3(target.x, target.y, target.z);
             this.camera.lookAt(target);
+            this.render();
+        },
+        setZoom: function(zoom){
+            this.camera.fov = 75 - zoom * 6;
+            this.camera.updateProjectionMatrix();
+            this.render()
+        },
+        setSize: function(width, height){
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(width, height);
         },
         clear: function(){
-            while(this.meshs.length > 0){
-                var mesh = this.meshs.pop();
-                this.scene.remove(mesh);
+            if(this.group){
+                this.scene.remove(this.group);
+                this.group = null;
             }
         },
         render: function(){
@@ -345,35 +409,51 @@ g3.exports = function(value){
         }
     });
 
+    var ImageHotspot = g3.extendClass(Hotspot, {
+        init: function(material, width, height, pos){
+            this.material = material;
+            this.width = width;
+            this.height = height;
+            this.pos = pos;
+        },
+        getPos: function(){
+            return this.pos;
+        }
+    });
+
     g3.module('pano',{
-        'Hotspot': Hotspot
+        'ImageHotspot': ImageHotspot
     });
 
 })();
 (function(){
-    var Hotspot = g3.module('pano.Hotspot');
     var Position = g3.module('pano.Position');
 
     var Scene = g3.extendClass({
-
-    });
-
-    var PanoScene = g3.extendClass(Scene, {
         init: function(materials, pos){
             this.materials = materials;
             this.pos = pos || new Position([0,0]);
+            this.hotspots = {};
         },
         getPos: function(){
             return this.pos;
         },
         setPos: function(pos){
             this.pos = pos;
+        },
+        addHotspot: function(name, hotspot){
+            this.hotspots[name] = hotspot;
         }
+    });
+
+    var BoxScene = g3.extendClass(Scene, {
+
     });
 
 
     g3.module('pano',{
-        'Scene' : PanoScene
+        'Scene' : Scene,
+        'BoxScene': BoxScene
     });
 
 })();
@@ -408,9 +488,20 @@ g3.exports = function(value){
         }
     });
 
-    var Panorama = g3.extendClass({
+    var Panorama = g3.extendClass(utils.WidgetObject, {
+        /*
+        * options:
+        */
+        default_options: {
+            width                  :0,
+            height                 :0,
+            container              :'',
+            draggable              :true,
+            enableScrollWheelZoom  :true,
+            maxZoom                :5,
+        },
         init: function(options){
-            this.opts = utils.extend({}, options);
+            this.super('init', [options]);
             this.container = this.getOption('container');
             this.backend = new Backend(
                 this.getOption('width', this.container.width), 
@@ -419,7 +510,8 @@ g3.exports = function(value){
             this.touch_meter = new TouchMeter();
             this.scenes = {};
             this._active_scene = null;
-            this._default_scene = null
+            this._default_scene = null;
+            this._zoom = 0;
             this.bindEvents();
         },
         bindEvents: function(){
@@ -427,6 +519,7 @@ g3.exports = function(value){
             this.container.addEventListener('mousedown', utils.proxy(this._onMouseDown, this), false);
             this.container.addEventListener('mousemove', utils.proxy(this._onMouseMove, this), false);
             this.container.addEventListener('mouseup', utils.proxy(this._onMouseUp, this), false);
+            this.container.addEventListener('mousewheel', utils.proxy(this._onMouseWheel, this), false);
 
             this.container.addEventListener('touchstart', utils.proxy(this._onTouchStart, this), false);
             this.container.addEventListener('touchmove', utils.proxy(this._onTouchMove, this), false);
@@ -438,18 +531,28 @@ g3.exports = function(value){
         _onMouseMove: function(event){
             if(this.touch_meter.isUserInteracting){
                 var pos = this.touch_meter.getMovePos(event);
-                this.moveTo(pos);
+                if(this.getOption('draggable')){
+                    this.moveTo(pos);
+                }
             }
         },
         _onMouseUp: function(event){
             this.touch_meter.stopMove();
         },
+        _onMouseWheel: function(event){
+            event.preventDefault();
+            var delta = event.wheelDeltaY;
+            var zoom = this._zoom + Math.floor(delta / 120);
+            if(this.getOption('enableScrollWheelZoom')){
+                this.setZoom(zoom);
+            }
+        },
         _onTouchStart: function(event){
             if (event.touches && event.touches.length == 1){
                 event.preventDefault();
                 this.touch_meter.startMove({
-                    x:event.touches[ 0 ].pageX,
-                    y:event.touches[ 0 ].pageY
+                    x:event.touches[0].pageX,
+                    y:event.touches[0].pageY
                 }, this.getActiveScene().getPos());
             }
         },
@@ -457,21 +560,19 @@ g3.exports = function(value){
             if (event.touches && event.touches.length == 1){
                 event.preventDefault();
                 var pos = this.touch_meter.getMovePos({
-                    x:event.touches[ 0 ].pageX,
-                    y:event.touches[ 0 ].pageY
+                    x:event.touches[0].pageX,
+                    y:event.touches[0].pageY
                 });
-                this.moveTo(pos);
-            }
-        },
-        getOption: function(name, defalut_value){
-            if(name in this.opts){
-                return this.opts[name];
-            } else {
-                return defalut_value;
+                if(this.getOption('draggable')){
+                    this.moveTo(pos);
+                }
             }
         },
         getActiveScene: function(){
             return this.scenes[this._active_scene];
+        },
+        getScene: function(name){
+            return this.scenes[name];
         },
         addScene: function(name, scene){
             this.scenes[name] = scene;
@@ -480,11 +581,10 @@ g3.exports = function(value){
             }
         },
         switchScene: function(name){
-            this._active_scene = name;
             var scene = this.scenes[name];
             this.backend.setScene(scene);
             this.backend.lookAt(scene.getPos().getVectorCoord());
-            this.backend.render();
+            this._active_scene = name;
         },
         setDefaultScene: function(name){
             this._default_scene = name;
@@ -496,9 +596,29 @@ g3.exports = function(value){
         bind: function(){
             this.mevent.bind.apply(this.mevent, arguments);
         },
+        setZoom: function(zoom){
+            var maxZoom = this.getOption('maxZoom', this.default_options['maxZoom']),
+                minZoom = 0;
+            if(zoom > maxZoom){
+                zoom = maxZoom;
+            }
+            if(zoom < minZoom){
+                zoom = minZoom;
+            }
+            this.backend.setZoom(zoom);
+            this._zoom = zoom;
+        },
+        zoomIn: function(){
+            this.setZoom(this._zoom + 1);
+        },
+        zoomOut: function(){
+            this.setZoom(this._zoom - 1);
+        },
         moveTo: function(pos){
             this.backend.lookAt(pos.getVectorCoord());
             this.getActiveScene().setPos(pos);
+        },
+        refresh: function(){
             this.backend.render();
         }
     });
@@ -515,10 +635,10 @@ g3.exports = function(value){
     g3.exports({
         'Event': event.G3Event,
         'pano': {
-            'Panorama': pano.Panorama,
-            'Scene': pano.Scene,
-            'Hotspot': pano.Hotspot,
-            'Position': pano.Position
+            'Panorama'       : pano.Panorama,
+            'BoxScene'       : pano.BoxScene,
+            'ImageHotspot'   : pano.ImageHotspot,
+            'Position'       : pano.Position
         }
     });
 

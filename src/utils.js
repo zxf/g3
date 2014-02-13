@@ -1,5 +1,7 @@
 (function(){
-    var utils = {
+    var utils = {};
+
+    utils = {
         each: function(list, handler){
             for(var i in list){
                 if(handler(list[i], i) === false){
@@ -59,9 +61,41 @@
         },
         proxy: function(func, scope){
             return function(){
-                func.apply(scope, arguments);
+                return func.apply(scope, arguments);
             };
         }
     };
+
+    utils.WidgetObject = g3.extendClass({
+        default_options: {},
+        init: function(options){
+            this.opts = utils.extend({}, this.default_options, options);
+        },
+        option: function(){
+            if(arguments.length == 1){
+                if(typeof arguments[0] == "string"){
+                    return this.getOption(arguments[0]);
+                } else {
+                    utils.extend(this.opts, arguments[0]);
+                    return true;
+                }
+            }
+            else {
+                this.setOption(arguments[0], arguments[1]);
+                return true;
+            }
+        },
+        getOption: function(name, defalut_value){
+            if(name in this.opts){
+                return this.opts[name];
+            } else {
+                return defalut_value;
+            }
+        },
+        setOption: function(name, value){
+            this.opts[name] = value;
+        }
+    });
+
     g3.module('utils', utils);
 })();

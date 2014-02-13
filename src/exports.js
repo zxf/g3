@@ -5,10 +5,10 @@
     g3.exports({
         'Event': event.G3Event,
         'pano': {
-            'Panorama': pano.Panorama,
-            'Scene': pano.Scene,
-            'Hotspot': pano.Hotspot,
-            'Position': pano.Position
+            'Panorama'       : pano.Panorama,
+            'BoxScene'       : pano.BoxScene,
+            'ImageHotspot'   : pano.ImageHotspot,
+            'Position'       : pano.Position
         }
     });
 
