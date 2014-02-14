@@ -1,11 +1,12 @@
+<body style="background:#f0f0f0;">
 <div id="test" style="width:100%;height:100%;"></div>
 <script type="text/javascript" src="../build/g3.js"></script>
 <script type="text/javascript" src="../lib/three.min.js"></script>
 <script type="text/javascript">
     var panorama = new g3.pano.Panorama({
         'container': document.getElementById('test'),
-        'width': 100,
-        'height': 100
+        'width': 1000,
+        'height': 1000
     });
 
     var scene = new g3.pano.BoxScene([
@@ -19,10 +20,10 @@
 
 
     //hotspot
-    var hotspot1 = new g3.pano.ImageHotspot('textures/s.png', 50, 50, new g3.pano.Position([0, -20]));
+    //var hotspot1 = new g3.pano.ImageHotspot('textures/s.png', 50, 50, new g3.pano.Position([0, -20]));
     var hotspot2 = new g3.pano.ImageHotspot('textures/s.png', 50, 50, new g3.pano.Position([0, 0]));
 
-    scene.addHotspot("h1", hotspot1);
+    //scene.addHotspot("h1", hotspot1);
     scene.addHotspot("h2", hotspot2);
 
 
@@ -36,3 +37,4 @@
     });
     panorama.render();
 </script>
+</body>

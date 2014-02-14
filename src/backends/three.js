@@ -1,17 +1,21 @@
 (function(){
     var utils = g3.module('utils');
-    var ThreeBackend = g3.extendClass('backends.Base', {
+    var ThreePanoBackend = g3.extendClass('backends.Base', {
         init: function(width, height){
             if(!window.THREE){
                 throw "require three.js.";
             }
             this.camera = new THREE.PerspectiveCamera(75, width / height, 1, 1000);
-            this.scene = new THREE.Scene();
-            this.group = null;
             this.renderer = new THREE.CanvasRenderer();
             this.renderer.setSize(width, height);
+            this.renderer.autoClear = false;
 
-            this.texture_placeholder = document.createElement( 'canvas' );
+            this.scene_scene = new THREE.Scene();
+            this.hotspot_scene = new THREE.Scene();
+            this.scene = null;
+            this.hotspots = [];
+
+            this.texture_placeholder = document.createElement('canvas');
             this.texture_placeholder.width = 128;
             this.texture_placeholder.height = 128;
 
@@ -19,30 +23,45 @@
         setScene: function(scene){
             var _this = this;
             this.clear();
-            this.group = new THREE.Object3D();
-            this.scene.add(this.group);
             //set scene
             materials = utils.map(scene.materials, function(material){
                 return _this.loadTexture(material);
             });
-            var mesh = new THREE.Mesh(new THREE.SphereGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
-            mesh.scale.x = - 1;
-            //this.group.add(mesh);
-            this.setHotspots(scene.hotspots);
+            utils.map(scene.hotspots, function(hotspot){
+                return _this.setHotspot(hotspot);
+            });
+            var mesh = new THREE.Mesh(new THREE.CubeGeometry(300, 300, 300, 7, 7, 7), new THREE.MeshFaceMaterial(materials));
+            //skyMesh = new THREE.Mesh( new Cube( 300, 7000, 7000, 1, 1, 1,  skyMaterials, true, { px: true, nx: true, py: true, ny: false, pz: true, nz: true } ), new THREE.MeshFaceMaterial() );
+            mesh.scale.x = -1
+            //this.scene_scene.add(mesh);
+            this.scene = mesh;
+            
         },
-        setHotspots: function(hotspots){
-            for(var k in hotspots){
-                var hotspot = hotspots[k];
-                //var mesh = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), material);
-                var mesh = new THREE.Mesh(new THREE.CubeGeometry(100, 100, 100), new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff, opacity: 0.5 }));
-                //utils.extend(mesh.position, hotspot.getPos().getVectorCoord());
-                //mesh.scale.x = -1;
-
-                //var mesh = new THREE.Mesh(new THREE.PlaneGeometry( 480, 204, 4, 4 ), this.loadTexture(hotspot.material));
-                //mesh.scale.x = mesh.scale.y = mesh.scale.z = 1.5;
-                //mesh.rotation.z = 90;
-                this.group.add(mesh);
-            }
+        setHotspot: function(hotspot){
+            /*
+            var mesh = new THREE.Mesh( new THREE.CubeGeometry(100, 100, 100), 
+                new THREE.MeshFaceMaterial([
+                    new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, opacity: 0.5 } ),
+                    new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, opacity: 0.5 } ),
+                    new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, opacity: 0.5 } ),
+                    new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, opacity: 0.5 } ),
+                    new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, opacity: 0.5 } ),
+                    new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, opacity: 0.5 } )
+                    ]) );
+            */
+            
+            var mesh = new THREE.Mesh( new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial());
+            //var mesh = new THREE.Mesh(new THREE.PlaneGeometry( 100, 100), this.loadTexture(hotspot.material));
+            utils.extend(mesh.position, hotspot.getPos().getVectorCoord());
+            mesh.scale.x = -1
+            //mesh.rotation.x = - Math.PI / 2;
+            //mesh.scale.x = mesh.scale.y = mesh.scale.z = 1.5;
+            //mesh.rotation.x = 90;
+            //mesh.rotation.y = Math.PI / 2;
+            mesh.rotation.z = Math.PI / 2;
+            //mesh.rotation.x = - Math.PI / 2;
+            //mesh.scale.x = mesh.scale.y = mesh.scale.z = 1.5;
+            this.hotspot_scene.add(mesh);
         },
         loadTexture: function(path){
             var _this = this;
@@ -74,13 +93,18 @@
             this.renderer.setSize(width, height);
         },
         clear: function(){
-            if(this.group){
-                this.scene.remove(this.group);
-                this.group = null;
+            if(this.scene){
+                this.scene_scene.remove(this.scene);
+                this.scene = null;
+            }
+            while(this.hotspots.length > 0){
+                this.hotspot_scene.remove(this.hotspots.pop());
             }
         },
         render: function(){
-            this.renderer.render(this.scene, this.camera);
+            this.renderer.clear();
+            this.renderer.render(this.scene_scene, this.camera);
+            this.renderer.render(this.hotspot_scene, this.camera);
         },
         dom: function(){
             return this.renderer.domElement;
@@ -88,6 +112,6 @@
     });
 
     g3.module('backends', {
-        'ThreeBackend': ThreeBackend
+        'ThreePanoBackend': ThreePanoBackend
     });
 })();

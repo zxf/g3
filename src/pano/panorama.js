@@ -1,6 +1,6 @@
 (function(){
     var utils = g3.module('utils'),
-        Backend = g3.module('backends.ThreeBackend'),
+        Backend = g3.module('backends.ThreePanoBackend'),
         EventMaster = g3.module('event.Master'),
         Position = g3.module('pano.Position');
 
