@@ -1,0 +1,38 @@
+<body style="background:#f0f0f0;">
+<div id="test" style="width:100%;height:100%;"></div>
+<script type="text/javascript" src="../build/g3.js"></script>
+<script type="text/javascript" src="../lib/three.min.js"></script>
+<script type="text/javascript">
+    var space = new g3.astro.Space({
+        'container': document.getElementById('test'),
+        'width': 1000,
+        'height': 1000
+    });
+
+    var sun = new g3.astro.Star();
+   // var earth = new g3.astro.Star();
+  //  var moon = new g3.astro.Star();
+    space.addStar('sun', sun);
+   // space.addStar('earth', earth);
+   // space.addStar('moon', moon);
+
+   // var earth_orbit = new g3.astro.Orbit();
+   // var moon_orbit = new g3.astro.Orbit();
+
+
+   // earth_orbit.draw();
+   // moon_orbit.draw();
+
+    //earth.moveOn(earth_orbit, start, speed);
+   // moon.moveOn(moon_orbit, start, speed);
+
+  //  var group = new g3.astro.Group();
+
+  //  group.add(earth);
+  //  group.add(moon);
+
+  //  group.startMove();
+
+   // group.on('move', 'before')
+</script>
+</body>
