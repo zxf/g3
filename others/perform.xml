@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<perform version="1.0">
+  <addons>
+    <dataCleaner version="any"></dataCleaner>
+    <datapathImporter version="any"></datapathImporter>
+    <barReplayer version="any"></barReplayer>
+  </addons>
+
+  <definition>
+    <task name="clean-db">
+      <operation type="addons">
+	<addons>dataCleaner</addons>
+	<module>dropDB</module>
+	<params>
+	  <database>bpc</database>
+	</params>
+      </operation>
+    </task>
+
+    <task name="init-db">
+      <operation type="task">
+	<task>clean-db</task>
+      </operation>
+      <operation type="addons">
+	<addons>datapathImporter</addons>
+	<params>
+	  <path>fixtures/datapath.json</path>
+	</params>
+      </operation>
+    </task>
+  </definition>
+
+  <management>
+    <action name="start">
+      <task>init-db</task>
+    </action>
+
+    <action name="stop">
+      <task>clean-db</task>
+    </action>
+  </management>
+</perform>
